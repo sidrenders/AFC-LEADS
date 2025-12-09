@@ -118,7 +118,7 @@ class SeedImporter:
 
         # Auto-detect columns if not specified
         if not channel_column:
-            channel_column = self._find_column(df, ['channel', 'channel_url', 'youtube_channel', 'link'])
+            channel_column = self._find_column(df, ['channel', 'channel_url', 'channel_link', 'youtube_channel', 'link', 'url'])
         if not video_column:
             video_column = self._find_column(df, ['video', 'video_url', 'youtube_video'])
         if not name_column:
@@ -183,6 +183,9 @@ class SeedImporter:
 
                 # Add to database
                 channel_data['discovery_source'] = 'seed'
+                # Remove internal fields before saving
+                channel_data.pop('needs_resolution', None)
+                channel_data.pop('video_id', None)
 
                 try:
                     result = await self.db.add_channel(channel_data)

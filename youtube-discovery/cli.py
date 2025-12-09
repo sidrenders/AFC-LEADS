@@ -44,7 +44,7 @@ def import_seeds(
     channel_column: Optional[str] = typer.Option(None, "--channel", "-c", help="Column name for channel URLs"),
     video_column: Optional[str] = typer.Option(None, "--video", "-v", help="Column name for video URLs"),
     name_column: Optional[str] = typer.Option(None, "--name", "-n", help="Column name for channel names"),
-    no_enrich: bool = typer.Option(False, "--no-enrich", help="Skip API enrichment (faster, uses no quota)")
+    no_enrich: bool = typer.Option(False, "--no-enrich", is_flag=True, help="Skip API enrichment (faster, uses no quota)")
 ):
     """
     Import your existing leads from CSV/Excel file
