@@ -110,11 +110,14 @@ def import_seeds(
 
 @app.command()
 def discover(
-    seeds: bool = typer.Option(True, "--seeds/--no-seeds", help="Use seed expansion strategy"),
-    keywords: bool = typer.Option(True, "--keywords/--no-keywords", help="Use keyword search strategy"),
-    recommendations: bool = typer.Option(True, "--recs/--no-recs", help="Use recommendations strategy"),
-    niches: Optional[str] = typer.Option(None, "--niches", "-n", help="Comma-separated niches (e.g., 'tech,business')"),
-    limit: int = typer.Option(100, "--limit", "-l", help="Max channels per strategy")
+    seeds: bool = typer.Option(True, "--seeds", help="Use seed expansion strategy"),
+    no_seeds: bool = typer.Option(False, "--no-seeds", help="Skip seed expansion"),
+    keywords: bool = typer.Option(True, "--keywords", help="Use keyword search strategy"),
+    no_keywords: bool = typer.Option(False, "--no-keywords", help="Skip keyword search"),
+    recommendations: bool = typer.Option(True, "--recs", help="Use recommendations strategy"),
+    no_recs: bool = typer.Option(False, "--no-recs", help="Skip recommendations"),
+    niches: Optional[str] = typer.Option(None, "--niches", help="Comma-separated niches (e.g., 'tech,business')"),
+    limit: int = typer.Option(100, "--limit", help="Max channels per strategy")
 ):
     """
     Run channel discovery
@@ -141,9 +144,9 @@ def discover(
         niche_list = niches.split(',') if niches else None
 
         results = await orchestrator.run_full_discovery(
-            use_seeds=seeds,
-            use_keywords=keywords,
-            use_recommendations=recommendations,
+            use_seeds=seeds and not no_seeds,
+            use_keywords=keywords and not no_keywords,
+            use_recommendations=recommendations and not no_recs,
             niches=niche_list,
             max_per_strategy=limit
         )

@@ -28,16 +28,30 @@ class YouTubeScraper:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
         }
         self.delay = SCRAPE_DELAY_SECONDS
+        self.cookies = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+392'}
 
     async def _get_page(self, url: str) -> Optional[str]:
         """Fetch a page with rate limiting"""
         await asyncio.sleep(self.delay)
 
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=30.0) as client:
+            async with httpx.AsyncClient(
+                headers=self.headers,
+                cookies=self.cookies,
+                timeout=30.0,
+                follow_redirects=True
+            ) as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 return response.text
