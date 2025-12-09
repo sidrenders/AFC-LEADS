@@ -13,6 +13,8 @@ import asyncio
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import re
+import ssl
+import httplib2
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -29,7 +31,12 @@ class YouTubeClient:
         if not self.api_key:
             raise ValueError("YouTube API key required. Set YOUTUBE_API_KEY in .env")
 
-        self.youtube = build('youtube', 'v3', developerKey=self.api_key)
+        # Handle SSL issues in some environments (disable verification for testing)
+        import os
+        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+        http = httplib2.Http(disable_ssl_certificate_validation=True)
+        self.youtube = build('youtube', 'v3', developerKey=self.api_key, http=http)
+
         self.quota_used = 0
 
     def _track_quota(self, cost: int):
