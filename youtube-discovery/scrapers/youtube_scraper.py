@@ -364,6 +364,181 @@ class YouTubeScraper:
         except ValueError:
             return 0
 
+    def _parse_view_count(self, text: str) -> int:
+        """Parse view count text like '1.5M views' to integer"""
+        if not text:
+            return 0
+
+        text = text.lower().replace(',', '').replace(' views', '').replace(' view', '').strip()
+
+        try:
+            if 'k' in text:
+                return int(float(text.replace('k', '')) * 1000)
+            elif 'm' in text:
+                return int(float(text.replace('m', '')) * 1000000)
+            elif 'b' in text:
+                return int(float(text.replace('b', '')) * 1000000000)
+            else:
+                # Handle "No views" case
+                if text == 'no':
+                    return 0
+                return int(text)
+        except ValueError:
+            return 0
+
+    def _parse_relative_date(self, text: str) -> Optional[datetime]:
+        """Parse relative date like '3 months ago' to actual date"""
+        if not text:
+            return None
+
+        text = text.lower().strip()
+        now = datetime.now()
+
+        try:
+            if 'just now' in text or 'moment' in text:
+                return now
+            elif 'hour' in text:
+                hours = int(re.search(r'(\d+)', text).group(1))
+                return now.replace(hour=max(0, now.hour - hours))
+            elif 'day' in text:
+                days = int(re.search(r'(\d+)', text).group(1))
+                return datetime(now.year, now.month, max(1, now.day - days))
+            elif 'week' in text:
+                weeks = int(re.search(r'(\d+)', text).group(1))
+                from datetime import timedelta
+                return now - timedelta(weeks=weeks)
+            elif 'month' in text:
+                months = int(re.search(r'(\d+)', text).group(1))
+                year = now.year
+                month = now.month - months
+                while month <= 0:
+                    month += 12
+                    year -= 1
+                return datetime(year, month, min(now.day, 28))
+            elif 'year' in text:
+                years = int(re.search(r'(\d+)', text).group(1))
+                return datetime(now.year - years, now.month, min(now.day, 28))
+        except Exception:
+            pass
+
+        return None
+
+    async def get_channel_videos(self, channel_handle: str, max_videos: int = 100) -> List[Dict]:
+        """
+        Get videos from a channel's videos page
+        channel_handle can be @username, channel ID, or custom URL
+        """
+        # Handle different channel URL formats
+        if channel_handle.startswith('@'):
+            url = f"https://www.youtube.com/{channel_handle}/videos"
+        elif channel_handle.startswith('UC'):
+            url = f"https://www.youtube.com/channel/{channel_handle}/videos"
+        else:
+            url = f"https://www.youtube.com/c/{channel_handle}/videos"
+
+        html = await self._get_page(url)
+        if not html:
+            return []
+
+        data = self._extract_initial_data(html)
+        if not data:
+            return []
+
+        videos = []
+
+        try:
+            # Navigate to video grid
+            tabs = data.get('contents', {}).get('twoColumnBrowseResultsRenderer', {}).get('tabs', [])
+
+            for tab in tabs:
+                tab_renderer = tab.get('tabRenderer', {})
+                if tab_renderer.get('title') == 'Videos':
+                    content = tab_renderer.get('content', {})
+
+                    # Try richGridRenderer first (newer layout)
+                    rich_grid = content.get('richGridRenderer', {})
+                    if rich_grid:
+                        contents = rich_grid.get('contents', [])
+                        for item in contents:
+                            rich_item = item.get('richItemRenderer', {})
+                            video_renderer = rich_item.get('content', {}).get('videoRenderer', {})
+
+                            if video_renderer:
+                                video_id = video_renderer.get('videoId')
+                                if video_id:
+                                    title = video_renderer.get('title', {}).get('runs', [{}])[0].get('text', '')
+
+                                    # Get view count
+                                    view_text = video_renderer.get('viewCountText', {}).get('simpleText', '')
+                                    if not view_text:
+                                        view_text = video_renderer.get('viewCountText', {}).get('runs', [{}])[0].get('text', '')
+                                    views = self._parse_view_count(view_text)
+
+                                    # Get published time
+                                    published_text = video_renderer.get('publishedTimeText', {}).get('simpleText', '')
+                                    published_date = self._parse_relative_date(published_text)
+
+                                    # Get duration
+                                    duration = video_renderer.get('lengthText', {}).get('simpleText', '')
+
+                                    videos.append({
+                                        'video_id': video_id,
+                                        'title': title,
+                                        'url': f"https://www.youtube.com/watch?v={video_id}",
+                                        'views': views,
+                                        'view_text': view_text,
+                                        'published_text': published_text,
+                                        'published_date': published_date,
+                                        'duration': duration
+                                    })
+
+                                    if len(videos) >= max_videos:
+                                        break
+
+                    # Try sectionListRenderer (older layout)
+                    section_list = content.get('sectionListRenderer', {}).get('contents', [])
+                    for section in section_list:
+                        items = section.get('itemSectionRenderer', {}).get('contents', [])
+                        for item in items:
+                            grid_renderer = item.get('gridRenderer', {})
+                            if grid_renderer:
+                                grid_items = grid_renderer.get('items', [])
+                                for grid_item in grid_items:
+                                    video_renderer = grid_item.get('gridVideoRenderer', {})
+                                    if video_renderer:
+                                        video_id = video_renderer.get('videoId')
+                                        if video_id:
+                                            title = video_renderer.get('title', {}).get('runs', [{}])[0].get('text', '')
+                                            if not title:
+                                                title = video_renderer.get('title', {}).get('simpleText', '')
+
+                                            view_text = video_renderer.get('viewCountText', {}).get('simpleText', '')
+                                            views = self._parse_view_count(view_text)
+
+                                            published_text = video_renderer.get('publishedTimeText', {}).get('simpleText', '')
+                                            published_date = self._parse_relative_date(published_text)
+
+                                            duration = video_renderer.get('lengthText', {}).get('simpleText', '')
+
+                                            videos.append({
+                                                'video_id': video_id,
+                                                'title': title,
+                                                'url': f"https://www.youtube.com/watch?v={video_id}",
+                                                'views': views,
+                                                'view_text': view_text,
+                                                'published_text': published_text,
+                                                'published_date': published_date,
+                                                'duration': duration
+                                            })
+
+                                            if len(videos) >= max_videos:
+                                                break
+
+        except Exception as e:
+            print(f"Error parsing channel videos: {e}")
+
+        return videos
+
 
 class PlaywrightScraper:
     """
