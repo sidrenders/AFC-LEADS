@@ -15,25 +15,24 @@ export const IncomeDistribution: React.FC = () => {
 			{/* Left side - Bar Chart */}
 			<div
 				style={{
-					flex: 1,
+					flex: 1.2,
 					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
+					alignItems: 'flex-end',
+					justifyContent: 'flex-start',
+					paddingBottom: 100,
 				}}
 			>
-				<div style={{width: '100%', height: '80%'}}>
-					<BarChart />
-				</div>
+				<BarChart />
 			</div>
 
 			{/* Right side - India Map */}
 			<div
 				style={{
-					flex: 0.6,
+					flex: 0.8,
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					paddingRight: 60,
+					paddingRight: 80,
 				}}
 			>
 				<IndiaMap />

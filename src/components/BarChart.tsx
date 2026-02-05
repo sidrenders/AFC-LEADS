@@ -8,12 +8,15 @@ interface BarData {
 }
 
 const bars: BarData[] = [
-	{label: '<₹8,000', value: 7.3, color: '#ff5733'},
+	{label: '<₹8,000', value: 10, color: '#ff5733'},
 	{label: '<₹18,000', value: 65, color: '#ffa500'},
 	{label: '~₹60,000', value: 55, color: '#ffd700'},
-	{label: '~₹1L', value: 12, color: '#7cb342'},
-	{label: '~₹5L', value: 4, color: '#4a90d9'},
+	{label: '~₹1L', value: 15, color: '#7cb342'},
+	{label: '~₹5L', value: 5, color: '#4a90d9'},
 ];
+
+const MAX_BAR_HEIGHT = 450;
+const CHART_HEIGHT = 550;
 
 export const BarChart: React.FC = () => {
 	const frame = useCurrentFrame();
@@ -25,7 +28,9 @@ export const BarChart: React.FC = () => {
 				display: 'flex',
 				flexDirection: 'column',
 				height: '100%',
-				padding: '40px 60px',
+				width: '100%',
+				paddingTop: 60,
+				paddingLeft: 40,
 				boxSizing: 'border-box',
 			}}
 		>
@@ -33,7 +38,7 @@ export const BarChart: React.FC = () => {
 			<div
 				style={{
 					display: 'flex',
-					flex: 1,
+					height: CHART_HEIGHT,
 					position: 'relative',
 				}}
 			>
@@ -45,9 +50,9 @@ export const BarChart: React.FC = () => {
 						justifyContent: 'space-between',
 						alignItems: 'flex-end',
 						paddingRight: 15,
-						paddingBottom: 40,
+						height: CHART_HEIGHT - 40,
 						color: '#888',
-						fontSize: 20,
+						fontSize: 24,
 						fontFamily: 'Arial, sans-serif',
 					}}
 				>
@@ -62,30 +67,32 @@ export const BarChart: React.FC = () => {
 				<div
 					style={{
 						display: 'flex',
-						flex: 1,
 						alignItems: 'flex-end',
-						gap: 40,
-						paddingLeft: 20,
+						gap: 50,
+						paddingLeft: 30,
+						paddingBottom: 40,
 						borderBottom: '3px solid #ffd700',
+						height: CHART_HEIGHT,
 						position: 'relative',
 					}}
 				>
 					{bars.map((bar, index) => {
-						const delay = index * 5;
+						const delay = index * 8;
 						const progress = spring({
 							fps,
 							frame: frame - delay,
 							config: {
 								damping: 50,
-								stiffness: 100,
-								mass: 0.5,
+								stiffness: 80,
+								mass: 0.8,
 							},
 						});
 
+						const targetHeight = (bar.value / 75) * MAX_BAR_HEIGHT;
 						const barHeight = interpolate(
 							progress,
 							[0, 1],
-							[0, (bar.value / 75) * 100],
+							[0, targetHeight],
 							{
 								extrapolateLeft: 'clamp',
 								extrapolateRight: 'clamp',
@@ -93,8 +100,8 @@ export const BarChart: React.FC = () => {
 						);
 
 						const labelOpacity = interpolate(
-							frame - delay - 15,
-							[0, 10],
+							frame - delay - 10,
+							[0, 15],
 							[0, 1],
 							{
 								extrapolateLeft: 'clamp',
@@ -109,17 +116,20 @@ export const BarChart: React.FC = () => {
 									display: 'flex',
 									flexDirection: 'column',
 									alignItems: 'center',
+									justifyContent: 'flex-end',
 									position: 'relative',
+									height: '100%',
 								}}
 							>
 								{/* Value label above bar */}
 								<div
 									style={{
+										position: 'absolute',
+										bottom: barHeight + 50,
 										color: bar.color,
-										fontSize: 18,
+										fontSize: 20,
 										fontFamily: 'Arial, sans-serif',
 										fontWeight: 'bold',
-										marginBottom: 8,
 										opacity: labelOpacity,
 										whiteSpace: 'nowrap',
 									}}
@@ -130,11 +140,11 @@ export const BarChart: React.FC = () => {
 								{/* Bar */}
 								<div
 									style={{
-										width: 60,
-										height: `${barHeight}%`,
+										width: 70,
+										height: barHeight,
 										backgroundColor: bar.color,
 										borderRadius: '4px 4px 0 0',
-										minHeight: 2,
+										marginBottom: 40,
 									}}
 								/>
 
@@ -143,33 +153,33 @@ export const BarChart: React.FC = () => {
 									<div
 										style={{
 											position: 'absolute',
-											left: 70,
-											bottom: `${barHeight}%`,
+											left: 80,
+											bottom: barHeight + 50,
 											display: 'flex',
 											alignItems: 'center',
-											gap: 8,
+											gap: 10,
 											opacity: labelOpacity,
 										}}
 									>
 										<div
 											style={{
-												width: 40,
-												height: 40,
+												width: 50,
+												height: 50,
 												borderRadius: '50%',
 												background:
 													'radial-gradient(circle at 30% 30%, #ffffff, #cccccc)',
-												boxShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+												boxShadow: '2px 2px 10px rgba(0,0,0,0.4)',
 											}}
 										/>
 										<span
 											style={{
 												color: '#ffffff',
-												fontSize: 32,
+												fontSize: 42,
 												fontFamily: 'Arial, sans-serif',
 												fontWeight: 'bold',
 											}}
 										>
-											{bar.value}
+											7.3
 										</span>
 									</div>
 								)}
@@ -182,13 +192,12 @@ export const BarChart: React.FC = () => {
 			{/* X-axis label */}
 			<div
 				style={{
-					textAlign: 'center',
 					color: '#ffd700',
-					fontSize: 20,
+					fontSize: 22,
 					fontFamily: 'Arial, sans-serif',
 					fontStyle: 'italic',
-					marginTop: 20,
-					paddingLeft: 50,
+					marginTop: 15,
+					marginLeft: 250,
 				}}
 			>
 				Income Class (in CR.)
