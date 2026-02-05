@@ -15,8 +15,13 @@ const bars: BarData[] = [
 	{label: '~₹5L', value: 5, color: '#4a90d9'},
 ];
 
-const MAX_BAR_HEIGHT = 450;
-const CHART_HEIGHT = 550;
+const CHART_WIDTH = 700;
+const CHART_HEIGHT = 500;
+const BAR_WIDTH = 65;
+const BAR_GAP = 75;
+const MAX_VALUE = 75;
+const PADDING_LEFT = 60;
+const PADDING_BOTTOM = 50;
 
 export const BarChart: React.FC = () => {
 	const frame = useCurrentFrame();
@@ -25,179 +30,158 @@ export const BarChart: React.FC = () => {
 	return (
 		<div
 			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				height: '100%',
-				width: '100%',
-				paddingTop: 60,
-				paddingLeft: 40,
-				boxSizing: 'border-box',
+				position: 'relative',
+				width: CHART_WIDTH,
+				height: CHART_HEIGHT + 100,
 			}}
 		>
-			{/* Chart area */}
+			{/* Y-axis labels */}
 			<div
 				style={{
-					display: 'flex',
+					position: 'absolute',
+					left: 0,
+					top: 0,
 					height: CHART_HEIGHT,
-					position: 'relative',
+					display: 'flex',
+					flexDirection: 'column',
+					justifyContent: 'space-between',
+					alignItems: 'flex-end',
+					width: PADDING_LEFT - 15,
+					color: '#888',
+					fontSize: 22,
+					fontFamily: 'Arial, sans-serif',
 				}}
 			>
-				{/* Y-axis */}
-				<div
-					style={{
-						display: 'flex',
-						flexDirection: 'column',
-						justifyContent: 'space-between',
-						alignItems: 'flex-end',
-						paddingRight: 15,
-						height: CHART_HEIGHT - 40,
-						color: '#888',
-						fontSize: 24,
-						fontFamily: 'Arial, sans-serif',
-					}}
-				>
-					<span>^</span>
-					<span>75</span>
-					<span>50</span>
-					<span>25</span>
-					<span>0</span>
-				</div>
+				<span>^</span>
+				<span>75</span>
+				<span>50</span>
+				<span>25</span>
+				<span>0</span>
+			</div>
 
-				{/* Bars container */}
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'flex-end',
-						gap: 50,
-						paddingLeft: 30,
-						paddingBottom: 40,
-						borderBottom: '3px solid #ffd700',
-						height: CHART_HEIGHT,
-						position: 'relative',
-					}}
-				>
-					{bars.map((bar, index) => {
-						const delay = index * 8;
-						const progress = spring({
-							fps,
-							frame: frame - delay,
-							config: {
-								damping: 50,
-								stiffness: 80,
-								mass: 0.8,
-							},
-						});
+			{/* Y-axis line */}
+			<div
+				style={{
+					position: 'absolute',
+					left: PADDING_LEFT,
+					top: CHART_HEIGHT,
+					width: CHART_WIDTH - PADDING_LEFT,
+					height: 3,
+					backgroundColor: '#ffd700',
+				}}
+			/>
 
-						const targetHeight = (bar.value / 75) * MAX_BAR_HEIGHT;
-						const barHeight = interpolate(
-							progress,
-							[0, 1],
-							[0, targetHeight],
-							{
-								extrapolateLeft: 'clamp',
-								extrapolateRight: 'clamp',
-							}
-						);
+			{/* Bars */}
+			{bars.map((bar, index) => {
+				const delay = index * 8;
+				const progress = spring({
+					fps,
+					frame: frame - delay,
+					config: {
+						damping: 50,
+						stiffness: 80,
+						mass: 0.8,
+					},
+				});
 
-						const labelOpacity = interpolate(
-							frame - delay - 10,
-							[0, 15],
-							[0, 1],
-							{
-								extrapolateLeft: 'clamp',
-								extrapolateRight: 'clamp',
-							}
-						);
+				const maxBarHeight = CHART_HEIGHT - 20;
+				const targetHeight = (bar.value / MAX_VALUE) * maxBarHeight;
+				const barHeight = interpolate(progress, [0, 1], [0, targetHeight], {
+					extrapolateLeft: 'clamp',
+					extrapolateRight: 'clamp',
+				});
 
-						return (
+				const labelOpacity = interpolate(frame - delay - 10, [0, 15], [0, 1], {
+					extrapolateLeft: 'clamp',
+					extrapolateRight: 'clamp',
+				});
+
+				const barX = PADDING_LEFT + 20 + index * (BAR_WIDTH + BAR_GAP);
+				const barY = CHART_HEIGHT - barHeight;
+
+				return (
+					<React.Fragment key={index}>
+						{/* Bar */}
+						<div
+							style={{
+								position: 'absolute',
+								left: barX,
+								top: barY,
+								width: BAR_WIDTH,
+								height: barHeight,
+								backgroundColor: bar.color,
+								borderRadius: '4px 4px 0 0',
+							}}
+						/>
+
+						{/* Label above bar */}
+						<div
+							style={{
+								position: 'absolute',
+								left: barX + BAR_WIDTH / 2,
+								top: barY - 30,
+								transform: 'translateX(-50%)',
+								color: bar.color,
+								fontSize: 18,
+								fontFamily: 'Arial, sans-serif',
+								fontWeight: 'bold',
+								opacity: labelOpacity,
+								whiteSpace: 'nowrap',
+							}}
+						>
+							{bar.label}
+						</div>
+
+						{/* Circle with value for first bar */}
+						{index === 0 && (
 							<div
-								key={index}
 								style={{
+									position: 'absolute',
+									left: barX + BAR_WIDTH + 15,
+									top: barY - 25,
 									display: 'flex',
-									flexDirection: 'column',
 									alignItems: 'center',
-									justifyContent: 'flex-end',
-									position: 'relative',
-									height: '100%',
+									gap: 10,
+									opacity: labelOpacity,
 								}}
 							>
-								{/* Value label above bar */}
 								<div
 									style={{
-										position: 'absolute',
-										bottom: barHeight + 50,
-										color: bar.color,
-										fontSize: 20,
-										fontFamily: 'Arial, sans-serif',
-										fontWeight: 'bold',
-										opacity: labelOpacity,
-										whiteSpace: 'nowrap',
-									}}
-								>
-									{bar.label}
-								</div>
-
-								{/* Bar */}
-								<div
-									style={{
-										width: 70,
-										height: barHeight,
-										backgroundColor: bar.color,
-										borderRadius: '4px 4px 0 0',
-										marginBottom: 40,
+										width: 45,
+										height: 45,
+										borderRadius: '50%',
+										background:
+											'radial-gradient(circle at 30% 30%, #ffffff, #cccccc)',
+										boxShadow: '2px 2px 10px rgba(0,0,0,0.4)',
 									}}
 								/>
-
-								{/* Circle with value for first bar */}
-								{index === 0 && (
-									<div
-										style={{
-											position: 'absolute',
-											left: 80,
-											bottom: barHeight + 50,
-											display: 'flex',
-											alignItems: 'center',
-											gap: 10,
-											opacity: labelOpacity,
-										}}
-									>
-										<div
-											style={{
-												width: 50,
-												height: 50,
-												borderRadius: '50%',
-												background:
-													'radial-gradient(circle at 30% 30%, #ffffff, #cccccc)',
-												boxShadow: '2px 2px 10px rgba(0,0,0,0.4)',
-											}}
-										/>
-										<span
-											style={{
-												color: '#ffffff',
-												fontSize: 42,
-												fontFamily: 'Arial, sans-serif',
-												fontWeight: 'bold',
-											}}
-										>
-											7.3
-										</span>
-									</div>
-								)}
+								<span
+									style={{
+										color: '#ffffff',
+										fontSize: 38,
+										fontFamily: 'Arial, sans-serif',
+										fontWeight: 'bold',
+									}}
+								>
+									7.3
+								</span>
 							</div>
-						);
-					})}
-				</div>
-			</div>
+						)}
+					</React.Fragment>
+				);
+			})}
 
 			{/* X-axis label */}
 			<div
 				style={{
+					position: 'absolute',
+					left: PADDING_LEFT + (CHART_WIDTH - PADDING_LEFT) / 2,
+					top: CHART_HEIGHT + 30,
+					transform: 'translateX(-50%)',
 					color: '#ffd700',
-					fontSize: 22,
+					fontSize: 20,
 					fontFamily: 'Arial, sans-serif',
 					fontStyle: 'italic',
-					marginTop: 15,
-					marginLeft: 250,
 				}}
 			>
 				Income Class (in CR.)

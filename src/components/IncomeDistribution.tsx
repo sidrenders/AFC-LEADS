@@ -8,18 +8,14 @@ export const IncomeDistribution: React.FC = () => {
 		<AbsoluteFill
 			style={{
 				backgroundColor: '#1a1a1a',
-				display: 'flex',
-				flexDirection: 'row',
 			}}
 		>
 			{/* Left side - Bar Chart */}
 			<div
 				style={{
-					flex: 1.2,
-					display: 'flex',
-					alignItems: 'flex-end',
-					justifyContent: 'flex-start',
-					paddingBottom: 100,
+					position: 'absolute',
+					left: 40,
+					bottom: 80,
 				}}
 			>
 				<BarChart />
@@ -28,11 +24,10 @@ export const IncomeDistribution: React.FC = () => {
 			{/* Right side - India Map */}
 			<div
 				style={{
-					flex: 0.8,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					paddingRight: 80,
+					position: 'absolute',
+					right: 150,
+					top: '50%',
+					transform: 'translateY(-50%)',
 				}}
 			>
 				<IndiaMap />
