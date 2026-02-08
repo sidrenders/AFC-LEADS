@@ -4,6 +4,9 @@ Aftercells Lead Management System - Airtable Schema Definition
 This file defines the complete schema for the Aftercells lead management
 Airtable base. It serves as both documentation and the source of truth
 for the setup script.
+
+Valid Airtable colors: {color}Bright, {color}Dark1, {color}Light1, {color}Light2
+Base colors: blue, cyan, teal, green, yellow, orange, red, pink, purple, gray
 """
 
 # =============================================================================
@@ -49,6 +52,7 @@ CHANNELS_TABLE = {
         {
             "name": "Has Email in Bio",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Does the channel have an email listed in their YouTube bio?"
         },
 
@@ -58,15 +62,15 @@ CHANNELS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Explainer", "color": "blueDark2"},
-                    {"name": "Documentary", "color": "cyanDark2"},
-                    {"name": "True Crime / Mystery", "color": "redDark2"},
-                    {"name": "History & Politics", "color": "orangeDark2"},
-                    {"name": "Science & Space", "color": "purpleDark2"},
-                    {"name": "Nature & Geo", "color": "greenDark2"},
-                    {"name": "Tech & Innovation", "color": "grayDark2"},
-                    {"name": "Finance & Business", "color": "yellowDark2"},
-                    {"name": "3D Animated Storytelling", "color": "pinkDark2"},
+                    {"name": "Explainer", "color": "blueBright"},
+                    {"name": "Documentary", "color": "cyanBright"},
+                    {"name": "True Crime / Mystery", "color": "redBright"},
+                    {"name": "History & Politics", "color": "orangeBright"},
+                    {"name": "Science & Space", "color": "purpleBright"},
+                    {"name": "Nature & Geo", "color": "greenBright"},
+                    {"name": "Tech & Innovation", "color": "grayBright"},
+                    {"name": "Finance & Business", "color": "yellowBright"},
+                    {"name": "3D Animated Storytelling", "color": "pinkBright"},
                 ]
             },
             "description": "Primary niche category the channel falls into"
@@ -81,31 +85,37 @@ CHANNELS_TABLE = {
         {
             "name": "GATE: Active Channel",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Has posted at least 1 video in the last 5 months"
         },
         {
             "name": "GATE: Long Form Content",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Videos are >= 10 minutes"
         },
         {
             "name": "GATE: English Speaking",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel content is in English"
         },
         {
             "name": "GATE: Idea-Led Content",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Content is idea-first, cannot be shown with real footage"
         },
         {
             "name": "GATE: No Distinct Custom Style",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "The channel does NOT use a single locked-in custom style throughout (they're open to visual change)"
         },
         {
             "name": "GATE: Storytelling/Docs/Explainer",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Content falls into storytelling / documentary / explainer category"
         },
         {
@@ -121,16 +131,19 @@ CHANNELS_TABLE = {
         {
             "name": "Uses 3D",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel uses 3D visuals/animation in videos"
         },
         {
             "name": "Uses Motion Graphics / 2D",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel uses 2D motion graphics in videos"
         },
         {
             "name": "Uses Stock Footage / Photo",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel relies on stock footage or photos"
         },
         {
@@ -146,11 +159,13 @@ CHANNELS_TABLE = {
         {
             "name": "NEG: Filmed Footage Primary",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Filmed footage is the PRIMARY source of value (negative signal)"
         },
         {
             "name": "NEG: Face Cam / Personality Primary",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Face cam / personality is the PRIMARY driver of engagement (negative signal)"
         },
         {
@@ -166,11 +181,13 @@ CHANNELS_TABLE = {
         {
             "name": "Has Sponsors",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel has sponsor integrations in videos"
         },
         {
             "name": "Has Patreon / Membership",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel has Patreon or membership"
         },
         {
@@ -181,6 +198,7 @@ CHANNELS_TABLE = {
         {
             "name": "Has Product",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel sells a product (course, merch, etc.)"
         },
 
@@ -188,6 +206,7 @@ CHANNELS_TABLE = {
         {
             "name": "Consistent Branding",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Channel has consistent branding and thumbnails"
         },
 
@@ -197,10 +216,10 @@ CHANNELS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "A", "color": "greenDark2"},
-                    {"name": "B", "color": "blueDark2"},
-                    {"name": "C", "color": "orangeDark2"},
-                    {"name": "D", "color": "grayDark2"},
+                    {"name": "A", "color": "greenBright"},
+                    {"name": "B", "color": "blueBright"},
+                    {"name": "C", "color": "orangeBright"},
+                    {"name": "D", "color": "grayBright"},
                 ]
             },
             "description": "Lead tier: A (monetized, high signal), B (monetization-ready), C (low signal), D (manual review)"
@@ -235,10 +254,10 @@ CHANNELS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Salt", "color": "yellowDark2"},
-                    {"name": "Full Meal", "color": "greenDark2"},
-                    {"name": "Both", "color": "blueDark2"},
-                    {"name": "Undecided", "color": "grayDark2"},
+                    {"name": "Salt", "color": "yellowBright"},
+                    {"name": "Full Meal", "color": "greenBright"},
+                    {"name": "Both", "color": "blueBright"},
+                    {"name": "Undecided", "color": "grayBright"},
                 ]
             },
             "description": "Salt = premium addon (3D/MG for hooks). Full Meal = we produce the entire video."
@@ -248,15 +267,15 @@ CHANNELS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "New Lead", "color": "grayDark2"},
-                    {"name": "Researching", "color": "blueDark2"},
-                    {"name": "Ready to Reach Out", "color": "cyanDark2"},
-                    {"name": "Contacted", "color": "yellowDark2"},
-                    {"name": "In Conversation", "color": "orangeDark2"},
-                    {"name": "Proposal Sent", "color": "pinkDark2"},
-                    {"name": "Won - Active Client", "color": "greenDark2"},
-                    {"name": "Lost", "color": "redDark2"},
-                    {"name": "Not a Fit", "color": "grayDark2"},
+                    {"name": "New Lead", "color": "grayBright"},
+                    {"name": "Researching", "color": "blueBright"},
+                    {"name": "Ready to Reach Out", "color": "cyanBright"},
+                    {"name": "Contacted", "color": "yellowBright"},
+                    {"name": "In Conversation", "color": "orangeBright"},
+                    {"name": "Proposal Sent", "color": "pinkBright"},
+                    {"name": "Won - Active Client", "color": "greenBright"},
+                    {"name": "Lost", "color": "redBright"},
+                    {"name": "Not a Fit", "color": "grayLight1"},
                 ]
             },
             "description": "Current outreach status"
@@ -264,6 +283,7 @@ CHANNELS_TABLE = {
         {
             "name": "Hiring Signal",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Saw a signal of hiring on socials or website"
         },
         {
@@ -292,6 +312,7 @@ CHANNELS_TABLE = {
         {
             "name": "Last Updated",
             "type": "lastModifiedTime",
+            "options": {"isValid": True, "result": {"type": "dateTime", "typeOptions": {"dateFormat": {"name": "iso"}, "timeFormat": {"name": "24hour"}, "timeZone": "client"}}},
             "description": "Auto-tracked: when this record was last modified"
         },
         {
@@ -328,14 +349,14 @@ OUTREACH_LOG_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Email", "color": "blueDark2"},
-                    {"name": "DM (Twitter)", "color": "cyanDark2"},
-                    {"name": "DM (Instagram)", "color": "pinkDark2"},
-                    {"name": "DM (LinkedIn)", "color": "blueDark2"},
-                    {"name": "YouTube Comment", "color": "redDark2"},
-                    {"name": "Call", "color": "greenDark2"},
-                    {"name": "Meeting", "color": "purpleDark2"},
-                    {"name": "Other", "color": "grayDark2"},
+                    {"name": "Email", "color": "blueBright"},
+                    {"name": "DM (Twitter)", "color": "cyanBright"},
+                    {"name": "DM (Instagram)", "color": "pinkBright"},
+                    {"name": "DM (LinkedIn)", "color": "blueLight1"},
+                    {"name": "YouTube Comment", "color": "redBright"},
+                    {"name": "Call", "color": "greenBright"},
+                    {"name": "Meeting", "color": "purpleBright"},
+                    {"name": "Other", "color": "grayBright"},
                 ]
             },
             "description": "Type of outreach"
@@ -345,8 +366,8 @@ OUTREACH_LOG_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Outbound (we reached out)", "color": "orangeDark2"},
-                    {"name": "Inbound (they reached out)", "color": "greenDark2"},
+                    {"name": "Outbound (we reached out)", "color": "orangeBright"},
+                    {"name": "Inbound (they reached out)", "color": "greenBright"},
                 ]
             },
             "description": "Who initiated?"
@@ -364,6 +385,7 @@ OUTREACH_LOG_TABLE = {
         {
             "name": "Response Received",
             "type": "checkbox",
+            "options": {"icon": "check", "color": "grayBright"},
             "description": "Did they respond?"
         },
         {
@@ -400,8 +422,8 @@ PROJECTS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Salt", "color": "yellowDark2"},
-                    {"name": "Full Meal", "color": "greenDark2"},
+                    {"name": "Salt", "color": "yellowBright"},
+                    {"name": "Full Meal", "color": "greenBright"},
                 ]
             },
             "description": "Salt (addon) or Full Meal (full production)"
@@ -411,12 +433,12 @@ PROJECTS_TABLE = {
             "type": "singleSelect",
             "options": {
                 "choices": [
-                    {"name": "Scoping", "color": "grayDark2"},
-                    {"name": "In Production", "color": "blueDark2"},
-                    {"name": "Review", "color": "orangeDark2"},
-                    {"name": "Delivered", "color": "greenDark2"},
-                    {"name": "On Hold", "color": "yellowDark2"},
-                    {"name": "Cancelled", "color": "redDark2"},
+                    {"name": "Scoping", "color": "grayBright"},
+                    {"name": "In Production", "color": "blueBright"},
+                    {"name": "Review", "color": "orangeBright"},
+                    {"name": "Delivered", "color": "greenBright"},
+                    {"name": "On Hold", "color": "yellowBright"},
+                    {"name": "Cancelled", "color": "redBright"},
                 ]
             },
             "description": "Project status"
@@ -431,10 +453,10 @@ PROJECTS_TABLE = {
             "type": "multipleSelects",
             "options": {
                 "choices": [
-                    {"name": "3D Animation", "color": "purpleDark2"},
-                    {"name": "2D Motion Graphics", "color": "blueDark2"},
-                    {"name": "Video Editing", "color": "greenDark2"},
-                    {"name": "Hook Sequence", "color": "orangeDark2"},
+                    {"name": "3D Animation", "color": "purpleBright"},
+                    {"name": "2D Motion Graphics", "color": "blueBright"},
+                    {"name": "Video Editing", "color": "greenBright"},
+                    {"name": "Hook Sequence", "color": "orangeBright"},
                 ]
             },
             "description": "What services are included in this project"
