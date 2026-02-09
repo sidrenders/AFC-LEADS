@@ -311,30 +311,31 @@ def run_gate_checks(channel_data, video_details):
     country = snippet.get("country", "")
     language = snippet.get("defaultLanguage", "")
 
-    # English check — based on video titles, not country
-    # A creator can be based anywhere and still make English content
-    is_english = True  # Default to true, only reject if titles are clearly non-English
-    if language and not language.lower().startswith("en"):
-        # Channel explicitly set a non-English language — but still check titles
-        is_english = False
-
-    # Check video titles: if titles are mostly Latin characters, it's English
+    # English check — only auto-reject channels with non-Latin script titles
+    # (Chinese, Arabic, Cyrillic, Korean, Thai, etc.)
+    # Latin-script languages (German, French, Spanish) pass the gate —
+    # Claude AI will detect actual language in Phase 2 for manual review.
+    is_english = True
     if video_details:
         titles = [vid.get("snippet", {}).get("title", "") for vid in video_details if vid.get("snippet", {}).get("title")]
         if titles:
             combined = " ".join(titles)
-            # Count characters that are basic Latin (ASCII letters, digits, punctuation)
-            latin_chars = sum(1 for c in combined if ord(c) < 256)
-            total_chars = len(combined)
+            # Count characters that are Latin-based (includes accented: é, ü, ñ etc.)
+            # Latin Extended range covers Western European languages
+            latin_chars = sum(1 for c in combined if (
+                ord(c) < 0x0250  # Basic Latin + Latin Extended-A/B
+                or c in "–—''""…•"  # Common punctuation
+            ))
+            total_chars = len(combined.replace(" ", ""))
             if total_chars > 0:
-                latin_ratio = latin_chars / total_chars
-                # If 85%+ of title characters are Latin, it's English content
-                is_english = latin_ratio >= 0.85
+                latin_ratio = latin_chars / (total_chars + len([c for c in combined if c == " "]))
+                # If less than 60% Latin, it's clearly a non-Latin script channel
+                is_english = latin_ratio >= 0.60
 
     results["gate_english"] = is_english
     if not is_english:
         sample_titles = [vid.get("snippet", {}).get("title", "")[:50] for vid in video_details[:2]]
-        results["gate_fail_reasons"].append(f"Non-English titles: {'; '.join(sample_titles)}")
+        results["gate_fail_reasons"].append(f"Non-Latin script titles: {'; '.join(sample_titles)}")
 
     # Active check
     if video_details:
@@ -417,10 +418,12 @@ Classify this channel. Respond in EXACTLY this JSON format, nothing else:
   "has_patreon": <true if any text mentions Patreon, membership, or similar>,
   "uses_3d": <true if evidence of 3D animation/visuals, false or uncertain = false>,
   "uses_motion_graphics_2d": <true if evidence of 2D motion graphics/animation, false or uncertain = false>,
-  "uses_stock_footage": <true if likely uses stock footage/photos as primary visuals, false otherwise>
+  "uses_stock_footage": <true if likely uses stock footage/photos as primary visuals, false otherwise>,
+  "content_language": "<primary language of the content, e.g. 'English', 'German', 'Spanish'>"
 }}
 
-Be conservative with visual style flags (uses_3d, uses_motion_graphics_2d, uses_stock_footage) — only mark true if there are strong clues. When uncertain, mark false. The team will verify manually."""
+Be conservative with visual style flags (uses_3d, uses_motion_graphics_2d, uses_stock_footage) — only mark true if there are strong clues. When uncertain, mark false. The team will verify manually.
+For content_language, judge by the video TITLES and DESCRIPTIONS — a creator based in Germany making English videos = "English"."""
 
     try:
         import anthropic
@@ -488,7 +491,7 @@ def airtable_request(method, table_name, data=None):
     return resp.json()
 
 
-def build_airtable_record(lead):
+def build_airtable_record(lead, valid_fields=None):
     """Convert enriched lead data to Airtable record fields."""
     fields = {
         "Channel Name": lead.get("channel_name", ""),
@@ -542,6 +545,11 @@ def build_airtable_record(lead):
     # AI classification fields (only if AI was run)
     ai = lead.get("ai_classification")
     if ai:
+        # If Claude detected non-English, override the gate
+        lang = ai.get("content_language", "").lower()
+        if lang and lang != "english" and not lang.startswith("english"):
+            fields["GATE: English Speaking"] = False
+
         if ai.get("primary_niche"):
             fields["Primary Niche"] = ai["primary_niche"]
         if ai.get("sub_niche"):
@@ -576,10 +584,17 @@ def build_airtable_record(lead):
     # Clean up: remove empty string values (Airtable doesn't like empty emails)
     fields = {k: v for k, v in fields.items() if v not in ("", None)}
 
+    # Filter to only fields that exist in the table
+    if valid_fields:
+        skipped = [k for k in fields if k not in valid_fields]
+        fields = {k: v for k, v in fields.items() if k in valid_fields}
+        if skipped:
+            pass  # Silently skip unknown fields
+
     return {"fields": fields}
 
 
-def import_to_airtable(leads_to_import, progress):
+def import_to_airtable(leads_to_import, progress, valid_fields=None):
     """
     Batch import leads to Airtable. 10 records at a time.
     Returns number of successfully imported records.
@@ -589,7 +604,7 @@ def import_to_airtable(leads_to_import, progress):
 
     for i in range(0, len(leads_to_import), batch_size):
         batch = leads_to_import[i:i + batch_size]
-        records = [build_airtable_record(lead) for _, lead in batch]
+        records = [build_airtable_record(lead, valid_fields) for _, lead in batch]
 
         result = airtable_request("POST", "Channels", {"records": records})
 
@@ -603,7 +618,7 @@ def import_to_airtable(leads_to_import, progress):
             print(f"    Failed batch {i // batch_size + 1}")
             # Try one by one for this batch
             for idx, lead in batch:
-                record = build_airtable_record(lead)
+                record = build_airtable_record(lead, valid_fields)
                 result = airtable_request("POST", "Channels", {"records": [record]})
                 if result and result.get("records"):
                     if idx not in progress["airtable_done"]:
@@ -807,7 +822,7 @@ def main():
         print(f"\n  ERROR: Missing in .env: {', '.join(missing)}")
         sys.exit(1)
 
-    # --- Test Airtable connection ---
+    # --- Test Airtable connection & get valid fields ---
     print(f"\n  Testing Airtable connection...")
     print(f"    Base ID: {AIRTABLE_BASE_ID}")
     test = airtable_request("GET", "Channels")
@@ -816,6 +831,23 @@ def main():
         print("  Make sure the 'Channels' table exists in your base.")
         sys.exit(1)
     print(f"    Connected! Found {len(test.get('records', []))} existing records.")
+
+    # Get valid field names from existing records or table metadata
+    valid_fields = set()
+    # Fetch table schema via metadata API
+    schema_resp = requests.get(
+        f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables",
+        headers={"Authorization": f"Bearer {AIRTABLE_TOKEN}"},
+    )
+    if schema_resp.status_code == 200:
+        for table in schema_resp.json().get("tables", []):
+            if table["name"] == "Channels":
+                valid_fields = {f["name"] for f in table.get("fields", [])}
+                break
+    if valid_fields:
+        print(f"    Found {len(valid_fields)} fields in Channels table")
+    else:
+        print("    WARNING: Could not fetch table schema, will try all fields")
 
     # --- Load progress ---
     progress = load_progress(PROGRESS_FILE)
@@ -1083,7 +1115,7 @@ def main():
         print(f"  PHASE 3: Import to Airtable ({len(airtable_todo)} leads)")
         print(f"{'='*65}")
 
-        imported = import_to_airtable(airtable_todo, progress)
+        imported = import_to_airtable(airtable_todo, progress, valid_fields)
         save_progress(progress, PROGRESS_FILE)
         print(f"\n  Phase 3 complete. Imported {imported} leads to Airtable.")
 
