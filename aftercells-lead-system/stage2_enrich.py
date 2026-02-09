@@ -62,7 +62,6 @@ AIRTABLE_TOKEN = os.getenv("AIRTABLE_PERSONAL_ACCESS_TOKEN")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 
 YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3"
-AIRTABLE_API_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}"
 
 # Gate thresholds
 ACTIVE_MONTHS = 5
@@ -312,19 +311,30 @@ def run_gate_checks(channel_data, video_details):
     country = snippet.get("country", "")
     language = snippet.get("defaultLanguage", "")
 
-    # English check
-    english_countries = {
-        "US", "GB", "CA", "AU", "NZ", "IE", "ZA", "SG", "IN",
-        "PH", "KE", "NG", "GH", "PK",
-    }
-    is_english = (
-        language.lower().startswith("en")
-        or country in english_countries
-        or not country
-    )
+    # English check — based on video titles, not country
+    # A creator can be based anywhere and still make English content
+    is_english = True  # Default to true, only reject if titles are clearly non-English
+    if language and not language.lower().startswith("en"):
+        # Channel explicitly set a non-English language — but still check titles
+        is_english = False
+
+    # Check video titles: if titles are mostly Latin characters, it's English
+    if video_details:
+        titles = [vid.get("snippet", {}).get("title", "") for vid in video_details if vid.get("snippet", {}).get("title")]
+        if titles:
+            combined = " ".join(titles)
+            # Count characters that are basic Latin (ASCII letters, digits, punctuation)
+            latin_chars = sum(1 for c in combined if ord(c) < 256)
+            total_chars = len(combined)
+            if total_chars > 0:
+                latin_ratio = latin_chars / total_chars
+                # If 85%+ of title characters are Latin, it's English content
+                is_english = latin_ratio >= 0.85
+
     results["gate_english"] = is_english
     if not is_english:
-        results["gate_fail_reasons"].append(f"Not English (country={country}, lang={language})")
+        sample_titles = [vid.get("snippet", {}).get("title", "")[:50] for vid in video_details[:2]]
+        results["gate_fail_reasons"].append(f"Non-English titles: {'; '.join(sample_titles)}")
 
     # Active check
     if video_details:
@@ -446,13 +456,14 @@ Be conservative with visual style flags (uses_3d, uses_motion_graphics_2d, uses_
 # Airtable Import
 # =============================================================================
 
-def airtable_request(method, endpoint, data=None):
+def airtable_request(method, table_name, data=None):
     """Make an Airtable API request."""
+    from urllib.parse import quote
     headers = {
         "Authorization": f"Bearer {AIRTABLE_TOKEN}",
         "Content-Type": "application/json",
     }
-    url = f"{AIRTABLE_API_URL}/{endpoint}"
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{quote(table_name, safe='')}"
 
     if method == "GET":
         resp = requests.get(url, headers=headers, params=data)
@@ -467,10 +478,11 @@ def airtable_request(method, endpoint, data=None):
         # Rate limited — wait and retry
         print("    Airtable rate limited, waiting 30s...")
         time.sleep(30)
-        return airtable_request(method, endpoint, data)
+        return airtable_request(method, table_name, data)
 
     if resp.status_code not in (200, 201):
         print(f"    Airtable error {resp.status_code}: {resp.text[:300]}")
+        print(f"    URL: {url}")
         return None
 
     return resp.json()
@@ -794,6 +806,16 @@ def main():
     if missing:
         print(f"\n  ERROR: Missing in .env: {', '.join(missing)}")
         sys.exit(1)
+
+    # --- Test Airtable connection ---
+    print(f"\n  Testing Airtable connection...")
+    print(f"    Base ID: {AIRTABLE_BASE_ID}")
+    test = airtable_request("GET", "Channels")
+    if test is None:
+        print("\n  ERROR: Can't connect to Airtable. Check your token and base ID.")
+        print("  Make sure the 'Channels' table exists in your base.")
+        sys.exit(1)
+    print(f"    Connected! Found {len(test.get('records', []))} existing records.")
 
     # --- Load progress ---
     progress = load_progress(PROGRESS_FILE)
