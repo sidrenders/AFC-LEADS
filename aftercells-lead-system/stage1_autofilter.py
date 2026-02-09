@@ -38,7 +38,7 @@ SETUP:
      python stage1_autofilter.py your_export.xlsx
 
 USAGE:
-    python stage1_autofilter.py <path_to_csv_or_xlsx> [--dry-run] [--limit N]
+    python stage1_autofilter.py <path_to_csv_or_xlsx> [--dry-run] [--limit N] [--responses <response_sheet.xlsx>]
 
     --dry-run   Show what would happen without calling YouTube API
     --limit N   Only process the first N rows (for testing)
@@ -411,6 +411,187 @@ def read_csv_file(filepath):
     return rows
 
 
+def _is_green_color(cell):
+    """
+    Check if a cell has a green-ish fill color.
+    Handles direct RGB, theme colors, and indexed colors from Google Sheets exports.
+    """
+    fill = cell.fill
+    if not fill or fill.patternType is None or fill.patternType == "none":
+        return False
+
+    # Check both fgColor and bgColor (Google Sheets exports sometimes use bgColor)
+    for color_attr in (fill.fgColor, fill.bgColor):
+        if not color_attr:
+            continue
+
+        rgb = None
+
+        # Direct RGB value (most common)
+        if color_attr.rgb and str(color_attr.rgb) not in ("00000000", "0", "None"):
+            rgb = str(color_attr.rgb)
+
+        # Theme color with tint — resolve to approximate RGB
+        elif color_attr.theme is not None:
+            # Theme index 0-9 maps to standard theme colors
+            # We can't resolve exactly without the theme, but we can skip
+            # known non-green themes (0=white, 1=black, etc.)
+            # Instead, skip theme-based detection and rely on response sheet
+            continue
+
+        # Indexed color (legacy Excel)
+        elif color_attr.indexed is not None and color_attr.indexed not in (64, 65):
+            # Can't easily resolve indexed colors; skip
+            continue
+
+        if not rgb:
+            continue
+
+        rgb = rgb.lower()
+
+        # Known green hex values from Google Sheets / Excel
+        known_greens = [
+            "00ff00", "92d050", "00b050", "a9d08e", "c6efce",
+            "b6d7a8", "6aa84f", "38761d", "274e13", "93c47d",
+            "d9ead3", "e2efda",
+        ]
+        # Strip alpha prefix if present (e.g., "FF92D050" → "92d050")
+        hex_rgb = rgb[-6:] if len(rgb) >= 6 else rgb
+
+        if any(g == hex_rgb for g in known_greens):
+            return True
+
+        # Flexible check: parse RGB and see if green channel dominates
+        if len(hex_rgb) == 6:
+            try:
+                r = int(hex_rgb[0:2], 16)
+                g = int(hex_rgb[2:4], 16)
+                b = int(hex_rgb[4:6], 16)
+                # Green-dominant: green channel significantly higher than red and blue
+                # and not too dark (g > 80) and not white/gray (some color saturation)
+                if g > 80 and g > r * 1.3 and g > b * 1.3 and (g - min(r, b)) > 40:
+                    return True
+            except ValueError:
+                pass
+
+    return False
+
+
+def read_response_sheet(filepath):
+    """
+    Read the Response Analysis 3D sheet.
+    Columns: Channel Name, Niche, Status, Channel keywords, Video style
+    Green rows = worked with, Red rows = didn't work out.
+
+    Returns a dict: normalized_channel_name → {
+        'replied': True,
+        'worked_with': bool (green),
+        'didnt_work_out': bool (red),
+        'niche': str,
+        'status_notes': str,
+        'channel_keywords': str,
+        'video_style': str,
+    }
+    """
+    try:
+        import openpyxl
+    except ImportError:
+        print("  To read .xlsx files, install openpyxl:")
+        print("  pip install openpyxl")
+        sys.exit(1)
+
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    lookup = {}
+    for row in ws.iter_rows(min_row=2, values_only=False):
+        values = {headers[i]: (cell.value or "") for i, cell in enumerate(row) if i < len(headers)}
+
+        # Get channel name
+        channel_name = ""
+        niche = ""
+        status_notes = ""
+        channel_keywords = ""
+        video_style = ""
+
+        for key, value in values.items():
+            if not key:
+                continue
+            k = str(key).strip().lower()
+            v = str(value).strip() if value else ""
+            if "channel" in k and "name" in k:
+                channel_name = v
+            elif "niche" in k:
+                niche = v
+            elif "status" in k:
+                status_notes = v
+            elif "keyword" in k:
+                channel_keywords = v
+            elif "video" in k and "style" in k:
+                video_style = v
+
+        if not channel_name:
+            continue
+
+        # Check row color: green = worked with, red = didn't work out
+        is_green = any(_is_green_color(cell) for cell in row)
+        is_red = any(_is_red_color(cell) for cell in row)
+
+        name_key = channel_name.strip().lower()
+        lookup[name_key] = {
+            "replied": True,
+            "worked_with": is_green,
+            "didnt_work_out": is_red,
+            "niche": niche,
+            "status_notes": status_notes,
+            "channel_keywords": channel_keywords,
+            "video_style": video_style,
+        }
+
+    return lookup
+
+
+def _is_red_color(cell):
+    """Check if a cell has a red-ish fill color."""
+    fill = cell.fill
+    if not fill or fill.patternType is None or fill.patternType == "none":
+        return False
+
+    for color_attr in (fill.fgColor, fill.bgColor):
+        if not color_attr:
+            continue
+
+        rgb = None
+        if color_attr.rgb and str(color_attr.rgb) not in ("00000000", "0", "None"):
+            rgb = str(color_attr.rgb)
+
+        if not rgb:
+            continue
+
+        rgb = rgb.lower()
+        hex_rgb = rgb[-6:] if len(rgb) >= 6 else rgb
+
+        # Known red hex values
+        known_reds = ["ff0000", "ff4444", "cc0000", "e06666", "ea9999",
+                      "f4cccc", "ff6d01", "e74c3c", "c0392b"]
+        if any(r == hex_rgb for r in known_reds):
+            return True
+
+        if len(hex_rgb) == 6:
+            try:
+                r = int(hex_rgb[0:2], 16)
+                g = int(hex_rgb[2:4], 16)
+                b = int(hex_rgb[4:6], 16)
+                if r > 80 and r > g * 1.3 and r > b * 1.3 and (r - min(g, b)) > 40:
+                    return True
+            except ValueError:
+                pass
+
+    return False
+
+
 def read_xlsx_file(filepath):
     """Read an XLSX file, preserving green highlight info."""
     try:
@@ -431,16 +612,7 @@ def read_xlsx_file(filepath):
         values = {headers[i]: (cell.value or "") for i, cell in enumerate(row) if i < len(headers)}
 
         # Check for green fill (highlighted rows = replied leads)
-        is_green = False
-        for cell in row:
-            if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
-                color = str(cell.fill.fgColor.rgb)
-                # Green-ish colors (various shades)
-                if color not in ("00000000", "0",) and any(
-                    g in color.lower() for g in ["00ff00", "92d050", "00b050", "a9d08e", "c6efce", "b6d7a8"]
-                ):
-                    is_green = True
-                    break
+        is_green = any(_is_green_color(cell) for cell in row)
 
         normalized = normalize_row(values)
         normalized["replied"] = is_green
@@ -516,13 +688,30 @@ def parse_subscriber_count(sub_str):
 # Main Pipeline
 # =============================================================================
 
-def process_leads(input_file, dry_run=False, limit=None):
+def process_leads(input_file, dry_run=False, limit=None, responses_file=None):
     """Main processing pipeline."""
     input_path = Path(input_file)
 
     if not input_path.exists():
         print(f"  ERROR: File not found: {input_file}")
         sys.exit(1)
+
+    # Load response sheet cross-reference if provided
+    response_lookup = {}
+    if responses_file:
+        responses_path = Path(responses_file)
+        if not responses_path.exists():
+            print(f"  ERROR: Response sheet not found: {responses_file}")
+            sys.exit(1)
+        print(f"\n  Loading response sheet: {responses_path.name}...")
+        response_lookup = read_response_sheet(responses_file)
+        print(f"  Found {len(response_lookup)} channels in response sheet")
+        worked = sum(1 for v in response_lookup.values() if v["worked_with"])
+        didnt = sum(1 for v in response_lookup.values() if v["didnt_work_out"])
+        neutral = len(response_lookup) - worked - didnt
+        print(f"    Worked with (green): {worked}")
+        print(f"    Didn't work out (red): {didnt}")
+        print(f"    Other/neutral: {neutral}")
 
     # Read input
     print(f"\n  Reading {input_path.name}...")
@@ -533,6 +722,23 @@ def process_leads(input_file, dry_run=False, limit=None):
 
     total = len(rows)
     print(f"  Found {total} leads")
+
+    # Cross-reference with response sheet
+    if response_lookup:
+        matched = 0
+        for row in rows:
+            name_key = row["channel_name"].strip().lower()
+            if name_key in response_lookup:
+                resp = response_lookup[name_key]
+                row["replied"] = True
+                row["worked_with"] = resp["worked_with"]
+                row["didnt_work_out"] = resp["didnt_work_out"]
+                row["response_niche"] = resp["niche"]
+                row["response_status"] = resp["status_notes"]
+                row["response_keywords"] = resp["channel_keywords"]
+                row["response_video_style"] = resp["video_style"]
+                matched += 1
+        print(f"  Cross-referenced: {matched} leads matched in response sheet")
 
     if limit:
         rows = rows[:limit]
@@ -548,6 +754,14 @@ def process_leads(input_file, dry_run=False, limit=None):
             print(f"     Subs: {row['subscribers']} → {parse_subscriber_count(row['subscribers'])}")
             print(f"     Email: {row['email']}")
             print(f"     Replied: {row['replied']}")
+            if row.get("worked_with"):
+                print(f"     Response: WORKED WITH (green)")
+            elif row.get("didnt_work_out"):
+                print(f"     Response: DIDN'T WORK OUT (red)")
+            elif row.get("replied"):
+                print(f"     Response: Replied (neutral)")
+            if row.get("response_niche"):
+                print(f"     Niche (from response): {row['response_niche']}")
             print()
         if len(rows) > 10:
             print(f"  ... and {len(rows) - 10} more")
@@ -704,6 +918,9 @@ def write_passed_csv(leads, filepath):
         "language", "country", "video_count",
         "description", "about",
         "status", "remark", "replied",
+        "worked_with", "didnt_work_out",
+        "response_niche", "response_status",
+        "response_keywords", "response_video_style",
     ]
 
     with open(filepath, "w", newline="", encoding="utf-8") as f:
@@ -767,7 +984,12 @@ def write_summary(passed, rejected, failed_resolve, total, filepath):
         if replied_passed:
             f.write(f"\nREPLIED LEADS THAT PASSED ({len(replied_passed)}):\n")
             for l in replied_passed:
-                f.write(f"  - {l['channel_name']} ({l['subscribers']})\n")
+                tag = ""
+                if l.get("worked_with"):
+                    tag = " [WORKED WITH]"
+                elif l.get("didnt_work_out"):
+                    tag = " [DIDN'T WORK OUT]"
+                f.write(f"  - {l['channel_name']} ({l['subscribers']}){tag}\n")
 
     print(f"  Wrote summary to {filepath}")
 
@@ -783,6 +1005,7 @@ if __name__ == "__main__":
     parser.add_argument("input_file", help="Path to CSV or XLSX export from Google Sheets")
     parser.add_argument("--dry-run", action="store_true", help="Parse file without calling YouTube API")
     parser.add_argument("--limit", type=int, help="Only process first N rows")
+    parser.add_argument("--responses", help="Path to Response Analysis XLSX for cross-referencing replied leads")
 
     args = parser.parse_args()
 
@@ -790,4 +1013,4 @@ if __name__ == "__main__":
     print("  AFTERCELLS LEAD MIGRATION - STAGE 1: AUTO-FILTER")
     print("=" * 60)
 
-    process_leads(args.input_file, dry_run=args.dry_run, limit=args.limit)
+    process_leads(args.input_file, dry_run=args.dry_run, limit=args.limit, responses_file=args.responses)
