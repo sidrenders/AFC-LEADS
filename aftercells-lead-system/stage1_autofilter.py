@@ -611,11 +611,9 @@ def read_xlsx_file(filepath):
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=False), start=2):
         values = {headers[i]: (cell.value or "") for i, cell in enumerate(row) if i < len(headers)}
 
-        # Check for green fill (highlighted rows = replied leads)
-        is_green = any(_is_green_color(cell) for cell in row)
-
         normalized = normalize_row(values)
-        normalized["replied"] = is_green
+        # replied is now determined by status text ("REPLIED") in normalize_row
+        # and/or response sheet cross-reference — no color detection on lead sheet
         rows.append(normalized)
 
     return rows
@@ -657,6 +655,10 @@ def normalize_row(row):
             normalized["remark"] = v
         elif "replied" in k:
             normalized["replied"] = v.lower() in ("yes", "true", "1", "y")
+
+    # Check if status field contains "replied" text
+    if "replied" in normalized["status"].lower():
+        normalized["replied"] = True
 
     return normalized
 
