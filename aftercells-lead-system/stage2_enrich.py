@@ -599,6 +599,20 @@ def import_to_airtable(leads_to_import, progress, valid_fields=None):
     Batch import leads to Airtable. 10 records at a time.
     Returns number of successfully imported records.
     """
+    # Debug: show what fields are being sent for the first record
+    if leads_to_import and valid_fields:
+        first_lead = leads_to_import[0][1]
+        test_record = build_airtable_record(first_lead)  # without filtering
+        all_keys = set(test_record["fields"].keys())
+        skipped = all_keys - valid_fields
+        sent = all_keys & valid_fields
+        if skipped:
+            print(f"\n    WARNING: These fields will be SKIPPED (not in your Airtable table):")
+            for f in sorted(skipped):
+                print(f"      - {f}")
+            print(f"    Fields being sent: {len(sent)}")
+            print(f"    To fix: create these fields in Airtable, or ignore if not needed.\n")
+
     imported = 0
     batch_size = 10
 
@@ -846,6 +860,7 @@ def main():
                 break
     if valid_fields:
         print(f"    Found {len(valid_fields)} fields in Channels table")
+        print(f"    Fields: {', '.join(sorted(valid_fields))}")
     else:
         print("    WARNING: Could not fetch table schema, will try all fields")
 
