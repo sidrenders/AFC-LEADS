@@ -510,13 +510,13 @@ def build_airtable_record(lead, valid_fields=None):
     if lead.get("bio_email"):
         fields["Has Email in Bio"] = True
 
-    # Gate checks
+    # Gate checks (your Airtable fields don't have "GATE:" prefix)
     if lead.get("gate_active") is not None:
-        fields["GATE: Active Channel"] = bool(lead.get("gate_active"))
+        fields["Active Channel"] = bool(lead.get("gate_active"))
     if lead.get("gate_long_form") is not None:
-        fields["GATE: Long Form Content"] = bool(lead.get("gate_long_form"))
+        fields["Long Form Content"] = bool(lead.get("gate_long_form"))
     if lead.get("gate_english") is not None:
-        fields["GATE: English Speaking"] = bool(lead.get("gate_english"))
+        fields["English Speaking"] = bool(lead.get("gate_english"))
 
     # Channel description as discovery notes
     desc = lead.get("channel_description", "")
@@ -532,13 +532,15 @@ def build_airtable_record(lead, valid_fields=None):
     if notes_parts:
         fields["Discovery Notes"] = "\n".join(notes_parts)
 
-    # Outreach status based on replied/worked_with
+    # Outreach status based on replied/worked_with/gate status
     if lead.get("worked_with"):
         fields["Outreach Status"] = "Won - Active Client"
     elif lead.get("didnt_work_out"):
         fields["Outreach Status"] = "Lost"
     elif lead.get("replied"):
         fields["Outreach Status"] = "In Conversation"
+    elif not lead.get("gate_passed", True):
+        fields["Outreach Status"] = "Not a Fit"
     else:
         fields["Outreach Status"] = "New Lead"
 
@@ -548,16 +550,16 @@ def build_airtable_record(lead, valid_fields=None):
         # If Claude detected non-English, override the gate
         lang = ai.get("content_language", "").lower()
         if lang and lang != "english" and not lang.startswith("english"):
-            fields["GATE: English Speaking"] = False
+            fields["English Speaking"] = False
 
         if ai.get("primary_niche"):
             fields["Primary Niche"] = ai["primary_niche"]
         if ai.get("sub_niche"):
             fields["Sub-Niche Notes"] = ai["sub_niche"]
         if ai.get("is_idea_led"):
-            fields["GATE: Idea-Led Content"] = True
+            fields["Idea-Led Content"] = True
         if ai.get("is_storytelling_docs_explainer"):
-            fields["GATE: Storytelling/Docs/Explainer"] = True
+            fields["Storytelling/Docs/Explainer"] = True
         if ai.get("has_sponsors"):
             fields["Has Sponsors"] = True
         if ai.get("has_patreon"):
@@ -846,9 +848,9 @@ def main():
         sys.exit(1)
     print(f"    Connected! Found {len(test.get('records', []))} existing records.")
 
-    # Get valid field names from existing records or table metadata
+    # Get valid field names and table ID from metadata API
     valid_fields = set()
-    # Fetch table schema via metadata API
+    channels_table_id = None
     schema_resp = requests.get(
         f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables",
         headers={"Authorization": f"Bearer {AIRTABLE_TOKEN}"},
@@ -856,13 +858,39 @@ def main():
     if schema_resp.status_code == 200:
         for table in schema_resp.json().get("tables", []):
             if table["name"] == "Channels":
+                channels_table_id = table["id"]
                 valid_fields = {f["name"] for f in table.get("fields", [])}
                 break
+
     if valid_fields:
         print(f"    Found {len(valid_fields)} fields in Channels table")
-        print(f"    Fields: {', '.join(sorted(valid_fields))}")
     else:
         print("    WARNING: Could not fetch table schema, will try all fields")
+
+    # Auto-create missing fields that we need
+    fields_to_create = {
+        "Added By": {"name": "Added By", "type": "singleLineText"},
+        "Discovery Notes": {"name": "Discovery Notes", "type": "multilineText"},
+        "Sub-Niche Notes": {"name": "Sub-Niche Notes", "type": "singleLineText"},
+        "Has Email in Bio": {"name": "Has Email in Bio", "type": "checkbox", "options": {"icon": "check", "color": "grayBright"}},
+        "Sample Video URL": {"name": "Sample Video URL", "type": "url"},
+    }
+    if valid_fields and channels_table_id:
+        missing = {k: v for k, v in fields_to_create.items() if k not in valid_fields}
+        if missing:
+            print(f"\n    Creating {len(missing)} missing fields...")
+            for name, field_def in missing.items():
+                resp = requests.post(
+                    f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables/{channels_table_id}/fields",
+                    headers={"Authorization": f"Bearer {AIRTABLE_TOKEN}", "Content-Type": "application/json"},
+                    json=field_def,
+                )
+                if resp.status_code in (200, 201):
+                    valid_fields.add(name)
+                    print(f"      Created: {name}")
+                else:
+                    print(f"      Failed: {name} — {resp.text[:150]}")
+                time.sleep(0.3)
 
     # --- Load progress ---
     progress = load_progress(PROGRESS_FILE)
