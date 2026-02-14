@@ -66,12 +66,13 @@ async function ytApiGet(endpoint, params) {
         .map(function(pair) { return pair[0] + "=" + encodeURIComponent(pair[1]); })
         .join("&");
     let url = "https://www.googleapis.com/youtube/v3/" + endpoint + "?" + queryString;
-    let resp = await remoteFetchAsync(url);
-    if (resp.statusCode !== 200) {
-        console.log("  YouTube API error " + resp.statusCode + ": " + resp.body.substring(0, 200));
+    let resp = await fetch(url);
+    if (!resp.ok) {
+        let errText = await resp.text();
+        console.log("  YouTube API error " + resp.status + ": " + errText.substring(0, 200));
         return null;
     }
-    return JSON.parse(resp.body);
+    return await resp.json();
 }
 
 async function resolveChannelId(url) {
@@ -323,7 +324,7 @@ if (!channelUrl) {
                 prompt += "For content_language, judge by the video TITLES and DESCRIPTIONS.";
 
                 try {
-                    let aiResp = await remoteFetchAsync("https://api.anthropic.com/v1/messages", {
+                    let aiResp = await fetch("https://api.anthropic.com/v1/messages", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -337,8 +338,8 @@ if (!channelUrl) {
                         })
                     });
 
-                    if (aiResp.statusCode === 200) {
-                        let aiData = JSON.parse(aiResp.body);
+                    if (aiResp.ok) {
+                        let aiData = await aiResp.json();
                         let text = aiData.content[0].text.trim();
                         // Handle markdown code blocks
                         if (text.indexOf("```") !== -1) {
@@ -353,7 +354,8 @@ if (!channelUrl) {
                         }
                         console.log("  AI: " + (aiResult.primary_niche || "Unknown niche") + " | Language: " + aiResult.content_language);
                     } else {
-                        console.log("  AI error: " + aiResp.statusCode + " " + aiResp.body.substring(0, 200));
+                        let errText = await aiResp.text();
+                        console.log("  AI error: " + aiResp.status + " " + errText.substring(0, 200));
                     }
                 } catch (e) {
                     console.log("  AI error: " + e.message);
