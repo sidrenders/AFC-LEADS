@@ -22,8 +22,8 @@
 // =============================================================================
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const YOUTUBE_API_KEY = "AIzaSyDWPJbwWvO8TbhrwfrVZrvfjwDpLmVcLx4";
-const ANTHROPIC_API_KEY = "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
+const YOUTUBE_API_KEY = "";
+const ANTHROPIC_API_KEY = "
 ";
 
 // Gate thresholds
